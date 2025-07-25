@@ -5,13 +5,15 @@ from CombinedCompressor import CombinedCompressor
 from utils import find_layers_resnet
 
 @torch.no_grad()
-def resnet_sequential(model, calib_loader, device, layer_configs, default_sparsity, default_wbits):
+
+def resnet_sequential(model, calib_loader, device, layer_configs, params):
     layers = find_layers_resnet(model)
+
     for idx, (name, module) in enumerate(layers):
         # 설정이 없으면 default 값 사용
         config = layer_configs.get(name, {})
-        sparsity = config.get('sparsity', default_sparsity)
-        wbits = config.get('wbits', default_wbits)
+        sparsity = config.get('sparsity', params.default_sparsity)
+        wbits = config.get('wbits', params.default_wbits)
 
         print(f"[{idx+1}/{len(layers)}] Processing {name} | Sparsity: {sparsity}, W_Bits: {wbits}")
 
@@ -40,14 +42,14 @@ def resnet_sequential(model, calib_loader, device, layer_configs, default_sparsi
             model(img.to(device))
             if 'inp' in cache and 'out' in cache:
                 gpt.add_batch(cache['inp'], cache['out'])
-            if batch_idx >= nsamples - 1:
+            if batch_idx >= params.nsamples - 1:
                 break
 
         handle.remove()
 
         # 프루닝 및 양자화 실행
-        gpt.fasterprune(sparsity=sparsity, prunen=prunen, prunem=prunem,
-                       percdamp=percdamp, blocksize=blocksize)
+        gpt.fasterprune(sparsity=sparsity, prunen=params.prunen, prunem=params.prunem,
+                       percdamp=params.percdamp, blocksize=params.blocksize)
         gpt.free()
 
         cache.clear()
